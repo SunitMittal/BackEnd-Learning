@@ -61,6 +61,9 @@ app.listen(port, () => {
 const connectDB = require("./db/index");
 connectDB();
 
+const userRouter = require('./routes/user.route')
+app.use('/api/v1/users', userRouter)
+
 // cookie-parser -> middleware jiska kaam kewal itna hai kii server see browser mee present cookies koo access kar paye aur set kar paye (basically cookies par CRUD operations karna)
 // app.use() --> taab use karenge jab hume koi middleware ya configuration settings karni hai
 

@@ -30,14 +30,17 @@ const uploadOnCloudinary = async (localFilePath) => {
     // {transformation: [{width: 30,height: 30}]}    //image dimensions
     // {tags: ["profile", "user"]}  Tags for searching
 
-
     const uploadFile = await cloudinary.uploader.upload(localFilePath, {
       resource_type: "auto",    //this is to specify the file type whehter it's an image(jpg, png, webp), video(mp4, mov) or raw(pdf, zip), assigning value 'auto' means Cloudinary decides on its own
     });
-    console.log("File uploaded on cloudinary successfully", uploadFile.url);
+    // console.log("File uploaded on cloudinary successfully", uploadFile.url);
+    
+    fs.unlinkSync(localFilePath);   // Delete local file after successful upload
     return uploadFile;
   } catch (err) {
-    fs.unlinkSync(localFilePath); //remove the files saved in local storage(disk storage) as the operation got failed, this will prevent junk files filling our server/system
+    console.error("Error uploading to Cloudinary:", err.message);
+    // Remove the files saved in local storage(disk storage) as the operation got failed, this will prevent junk files filling our server/system
+      fs.unlinkSync(localFilePath);
     return null;
   }
 };

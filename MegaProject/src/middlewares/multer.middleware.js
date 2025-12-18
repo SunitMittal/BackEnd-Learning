@@ -13,7 +13,8 @@ const storage = multer.diskStorage({
   },
 });
 
-export const upload = multer({ storage });
+const upload = multer({ storage });
+module.exports = upload
 
 // cb is the callback fxn nothing more than that
 

@@ -1,0 +1,53 @@
+HTTP means HyperText Transfer Protocol
+HTTPS means HyperText Transfer Protocol Secure
+
+URL/URN/URI -> sabh ekk hi baat he ye kewal technical jargons hai, acyually sabka matlab Address/URL hii hai
+
+HTTP headers
+Https headers mee metadata hii send hota hai
+metaData -> key-value pair data sent along with request & response
+Eg. metadata like: {name: person1, age:22}
+
+http headers koo generally caching, authentication, state management, etc mee use karte hai
+
+
+Types of Requqest headers:
+1. Request Headers -> all those headers which are coming from client
+2. Response Headers -> all those headers which are sent by server
+3. Representation Headers -> all those headers which are tells about encoding/compression
+4. Payload Headers -> all those headers which contains data
+
+
+Some Most Common Headers
+1. Accept:application/json -> tells which type of application data will it take (like here it is json)
+2. User-Agent -> it stores users general browser data
+3. Authorization -> used to send encrypted, token data, to send send token data we generally name key as bearer
+4. Content-Type -> used to tell what is the type/format of the data
+5. Cookie -> used to send cookies related data
+6. Cache-Control -> used to send/set cache related data to browser or we can say to control the cache
+
+HTTP Mthods -> they are basic set of operations that are used to interact with server
+1. GET -> retrieve/fetch data
+2. POST -> add/insert data
+3. PUT -> modify/replace the entire data
+4. PATCH -> modify/replace the specific/patial data
+5. DELETE -> Deletes the data
+
+
+HTTP Status Code -> which we send with response
+    1xx Series -> for Information
+    2xx Series -> for Success
+    3xx Series -> for Redirection
+    4xx Series -> for Client Error
+    5xx Series -> for Server Error
+
+Eg. Some frequently needed one are:
+100 -> means Continue           102 -> means Processing
+200 -> means OK                 201 -> means Created
+202 -> means Accepted
+307 -> means temporary redirect
+308 -> means permanent redirect
+400 -> means Bad Request        401 -> means Unauthorized
+402 -> means Payement Required  404 -> means Not Found
+500 -> means Internal Server Error
+504 -> means Gateway Time Out
