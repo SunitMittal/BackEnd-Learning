@@ -56,29 +56,14 @@ const userSchema = new mongoose.Schema(
 
 // .pre() -> middleware fxn which is implemented just before data gets stored in mongoDB (or we can say it is a hook).    syntax: schemaName.pre('eventType, fxn_handler)
 // eventTypes in mongoose: validate, save, updateOne, deleteOne
-userSchema.pre("save", function (next) {
+userSchema.pre("save", async function (next) {
   // Only hash password if it's modified
   if (!this.isModified("password")) {
-    if (typeof next === "function") {
       return next();
     }
-    return;
-  }
-
-  // Hash the password using callback
-  bcrypt.hash(this.password, 10, (err, hash) => {
-    if (err) {
-      if (typeof next === "function") {
-        return next(err);
-      }
-      throw err;
-    }
-    this.password = hash;
-    if (typeof next === "function") {
-      next();
-    }
-  });
-});
+    this.password = await bcrypt.hash(this.password, 10)
+    next()
+  })
 // fxn_handler arrow fxn nahii ho sakta, usse normal fxn mee hi likhna hoga, kyuki jaise humne js me padha tha kii arrow fxn me 'this' keyword ko access nahi kar sakte, aur yaha hume 'this' keword kii need hai, kyuki passowrd/kisi bhi field par bhi operation perform karke kee liye uska reference lena padega
 //'bcrypt.hash(text, salt_rounds)' --> method to hash password, it will hash the text, and will hash assigned number of salt_rounds (we generally use 10 as salt_rounds, beacuse after 10 rounds we can say password is hashed very securely)
 

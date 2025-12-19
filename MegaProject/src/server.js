@@ -50,7 +50,7 @@ app.use(express.json({ limit: "16kb" }));
 // 1. express.json() → for JSON
 // 2. express.urlencoded() → for form data
 // 3. multer → for files like imgs, videos, pdfs, etc
-app.use(express.urlencoded({ limit: "16kb" }));
+app.use(express.urlencoded({ extended: true, limit: "16kb" }));
 app.use(cookieParser()); //thats how we implement this, ismee bhi options hote hai like limit, etc par unki nahi hii ya bohot rarely need padegi
 
 const port = process.env.PORT || 5000;

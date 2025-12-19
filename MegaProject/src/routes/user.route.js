@@ -2,8 +2,8 @@ const express = require("express");
 const router = express.Router();
 const upload = require("../middlewares/multer.middleware");
 
-const { registerUser, loginUser, logoutUser } = require("../controllers/user.controller");
-const verifyJWT = require("../middlewares/auth.middleware");
+const { registerUser, loginUser, logoutUser, refreshAccessToken } = require("../controllers/user.controller");
+const {verifyJWT} = require("../middlewares/auth.middleware");
 
 router.post("/register",upload.fields([
     { name: "avatar", maxCount: 1 },
@@ -16,5 +16,6 @@ router.post("/register",upload.fields([
 
 router.post("/login", loginUser);
 router.post("/logout", verifyJWT, logoutUser);
+router.post("/refresh-token", refreshAccessToken);
 
 module.exports = router;

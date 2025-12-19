@@ -1,6 +1,6 @@
 const User = require("../models/user.model");
 const uploadOnCloudinary = require("../utils/cloudinary");
-const path = require("path");
+const jwt = require("jsonwebtoken");
 
 exports.registerUser = async (req, res) => {
   // Step1: get user details from frontend
@@ -108,16 +108,23 @@ exports.registerUser = async (req, res) => {
 
 exports.loginUser = async (req, res) => {
   // Step1: get user details from frontend (user can login via email/username and password)
-  const { email, password } = req.body;
-
   try {
-    // Step2: validations
-    if (!email) {
-      res.status(400).json({ msg: "email is mandatory" });
+    // Check if req.body exists
+    if (!req.body) {
+      return res
+        .status(400)
+        .json({ msg: "Request body is missing. Please send data as JSON." });
     }
 
-    if (!password || password == "") {
-      res.status(401).json({ msg: "password is mandatory" });
+    const { email, password } = req.body;
+
+    // Step2: validations
+    if (!email) {
+      return res.status(400).json({ msg: "email is mandatory" });
+    }
+
+    if (!password) {
+      return res.status(401).json({ msg: "password is mandatory" });
     }
 
     // Step3: check if user already exists
@@ -127,19 +134,41 @@ exports.loginUser = async (req, res) => {
     // });  //if need we can check for both username & email
 
     if (!checkUser) {
-      res.status(401).json({ msg: "User does not exist" });
+      return res.status(401).json({ msg: "User does not exist" });
     }
 
     // Step4: If user exist check password
-    const checkPassword = await checkUser.isPasswordCorrect(password); //ye isPasswordCorrect() fxn humne models me likha hai
+    // Check if password is hashed (bcrypt hashes start with $2a$, $2b$, or $2y$)
+    const isPasswordHashed =
+      checkUser.password && checkUser.password.startsWith("$2");
+
+    let checkPassword = false;
+    if (isPasswordHashed) {
+      // Password is hashed, use bcrypt.compare
+      checkPassword = await checkUser.isPasswordCorrect(password);
+    } else {
+      // Password is NOT hashed (plain text from old registration)
+      // Compare directly and then hash it for security
+      if (password === checkUser.password) {
+        checkPassword = true;
+        // Hash the password now for security and update in DB
+        const bcrypt = require("bcrypt");
+        const hashedPassword = await bcrypt.hash(password, 10);
+        await User.findByIdAndUpdate(checkUser._id, {
+          password: hashedPassword,
+        });
+      }
+    }
 
     if (!checkPassword) {
-      res.status(401).json({ msg: "Incorrect Password" });
+      return res.status(401).json({ msg: "Incorrect Password" });
     }
 
     // Step5: if user verified, then generate access & refresh tokens
-    const accessToken = await generateAccessToken();
-    const refreshToken = await generateRefreshToken();
+    // const accessToken = await generateAccessToken();
+    // const refreshToken = await generateRefreshToken();
+    const accessToken = checkUser.generateAccessToken();
+    const refreshToken = checkUser.generateRefreshToken();
     // we created these generateAccessToken() & generateRefreshToken() fxns in models
 
     checkUser.refreshToken = refreshToken; //jo humne refershToken generate kiya hai usse DB mee bhi toh store karna hai
@@ -201,7 +230,8 @@ exports.logoutUser = async (req, res) => {
       secure: true,
     };
 
-    return res.status(200)
+    return res
+      .status(200)
       .clearCookie("accessToken", options)
       .clearCookie("refreshToken", options)
       .json({ message: "User loggedOut Successfully" });
@@ -209,5 +239,166 @@ exports.logoutUser = async (req, res) => {
   } catch (err) {
     console.error("Logout error:", err);
     return res.status(500).json({ msg: "Logout failed" });
+  }
+};
+
+exports.refreshAccessToken = async (req, res) => {
+  try {
+    const incomingRefreshToken =
+      req.cookies.refreshToken || req.body.refreshToken;
+
+    if (!incomingRefreshToken)
+      return res.status(401).json({ msg: "Unauthorized Request" });
+
+    const secretKey = process.env.REFRESH_TOKEN_SECRET;
+    const decodedToken = jwt.verify(incomingRefreshToken, secretKey);
+
+    const findUser = await User.findById(decodedToken?._id);
+
+    if (!findUser)
+      return res.status(401).json({ msg: "Invalid Refresh Token" });
+
+    if (!incomingRefreshToken !== user?.refreshToken)
+      return res.status(401).json({ msg: "Refresh token Expired or used" });
+
+    const user = await User.findById(findUser);
+    const accessToken = user.generateAccessToken();
+    const refreshToken = user.generateRefreshToken();
+    user.refreshToken = refreshToken;
+    await user.save({ validateBeforeSave: false });
+
+    const options = {
+      httpOnly: true,
+      secure: true,
+    };
+
+    return res
+      .status(200)
+      .cookie("accessToken", accessToken, options)
+      .cookie("refreshToken", refreshToken, options)
+      .json({
+        user: loggedInUser,
+        accessToken,
+        refreshToken,
+        message: "Access Token Refreshed",
+      });
+  } catch (err) {
+    return res.status(500).json({ msg: "Invalid Refresh token" });
+  }
+};
+
+exports.changeCurrentPassword = async (req, res) => {
+  try {
+    const { oldPassword, newPassword } = req.body;
+    const userID = req.user._id;
+    const userData = await User.findById(userID);
+
+    const isPasswordCorrect = await userData.isPasswordCorrect(oldPassword);
+
+    if (!isPasswordCorrect)
+      return res.status(400).json({ msg: "Incorrect Password" });
+
+    userData.password = newPassword;
+    await userData.save({ validateBeforeSave: false });
+
+    return res.status(200).json({ msg: "Password Change Successfully" });
+  } catch (err) {
+    return res
+      .status(200)
+      .json({ msg: "Failed to change Password", error: err.message });
+  }
+};
+
+exports.getCurrentUser = async (req, res) => {
+  try {
+    return res
+      .status(200)
+      .json({ data: req.user, msg: "Current User Successfully" });
+  } catch (err) {
+    return res
+      .status(200)
+      .json({ msg: "Failed to fetch User details", error: err.message });
+  }
+};
+
+// User Account updations me hum images/media koo add nahi karenge agar wo bhi change karni hai toh uske liye ekk seprate route/controller create karenge aur user ko media ke saath ek seperate save ka option de denge, isse DB par bhi load less hoga and server par bhi congestion nahii padega
+exports.updateAccountDetails = async (req, res) => {
+  try {
+    const { fullName, email } = req.body;
+
+    if (!fullName || !email)
+      return res.status(400).json({ msg: "All fields are mandatory" });
+
+    User.findByIdAndUpdate(
+      req.user._id,
+      {
+        $set: { fullName: fullName, email: email },
+      },
+      { new: true }
+    ).select("-password, -refreshToken");
+
+    return res
+      .status(200)
+      .json({ data: req.user, msg: "Account Details Updated Successfully" });
+  } catch (err) {
+    return res
+      .status(200)
+      .json({ msg: "Failed to Update Account details", error: err.message });
+  }
+};
+
+exports.updateUserAvatar = async (req, res) => {
+  try {
+    const avatarLocalPath = req.file?.path; //this is we taken via multer
+    if (!avatarLocalPath)
+      return res.status(400).json({ msg: "Avatar file is missing" });
+
+    const updateAvatarOnCloudinary = await uploadOnCloudinary(avatarLocalPath);
+    if (!updateAvatarOnCloudinary.url)
+      return res
+        .status(400)
+        .json({ msg: "Error while uploading on avatar on clouidnary" });
+
+    const updateAvatarInDB = await User.findByIdAndUpdate(
+      req.user._id,
+      { $set: { avatar: updateAvatarOnCloudinary.url } },
+      { new: true }
+    ).select("-password -refreshToken");
+
+    return res
+      .status(200)
+      .json({ data: req.user, msg: "Avatar Updated Successfully" });
+  } catch (err) {
+    return res
+      .status(200)
+      .json({ msg: "Failed to Update Avatar", error: err.message });
+  }
+};
+
+exports.updateUserCoverImage = async (req, res) => {
+  try {
+    const coverImageLocalPath = req.file?.path; //this is we taken via multer
+    if (!coverImageLocalPath)
+      return res.status(400).json({ msg: "coverImage file is missing" });
+
+    const updateCoverImageOnCloudinary = await uploadOnCloudinary(coverImageLocalPath);
+    if (!updateCoverImageOnCloudinary.url)
+      return res
+        .status(400)
+        .json({ msg: "Error while uploading on avatar on clouidnary" });
+
+    const updateCoverImageInDB = await User.findByIdAndUpdate(
+      req.user._id,
+      { $set: { coverImage: updateCoverImageOnCloudinary.url } },
+      { new: true }
+    ).select("-password -refreshToken");
+
+    return res
+      .status(200)
+      .json({ data: req.user, msg: "CoverImage Updated Successfully" });
+  } catch (err) {
+    return res
+      .status(200)
+      .json({ msg: "Failed to Update CoverImage", error: err.message });
   }
 };
